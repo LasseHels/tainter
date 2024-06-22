@@ -64,6 +64,7 @@ impl Reconciler {
             time_added: Some(k8s_openapi::apimachinery::pkg::apis::meta::v1::Time(now)),
             value: None,
         };
+        let taint_string = self.taint_to_string(&taint);
 
         let mut node = node.clone();
         let mut spec = node.spec.expect("node should have a spec");
@@ -80,11 +81,35 @@ impl Reconciler {
         };
         // TODO: handle 409 Conflict HTTP error.
         // TODO: handle duplicate taint error.
-        // TODO: we should not unwrap here. We can test this by returning bad JSON which will cause serde to fail.
-        self.node_client
+        if let Err(error) = self
+            .node_client
             .replace(node_name.as_ref(), params, &node)
             .await
-            .unwrap();
+        {
+            tracing::error!(
+                error = error.to_string(),
+                node = node_name.as_ref(),
+                "Error adding taint to node"
+            )
+        } else {
+            tracing::info!(
+                node = node_name.as_ref(),
+                taint = taint_string,
+                "Successfully added taint to node"
+            )
+        }
+    }
+
+    fn taint_to_string(&self, taint: &Taint) -> String {
+        let value = match taint.value.as_ref() {
+            None => String::new(),
+            Some(value) => format!("={}", value),
+        };
+        let time_added = match taint.time_added.as_ref() {
+            None => String::new(),
+            Some(time_added) => format!("/{}", time_added.0),
+        };
+        format!("{}{value}:{}{time_added}", taint.key, taint.effect)
     }
 }
 
@@ -99,6 +124,71 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::{fs, io};
     use tracing_test::traced_test;
+
+    #[tokio::test]
+    #[traced_test]
+    async fn test_start_processes_node_and_logs_error_if_update_fails() {
+        let (mock_service, mut handle) = tower_test::mock::pair::<Request<Body>, Response<Body>>();
+
+        let client = Client::new(mock_service, "default");
+
+        let reconciler = Reconciler::new(client);
+
+        tokio::spawn(async move {
+            reconciler.start().await;
+        });
+
+        let (request, response) = handle.next_request().await.expect("service not called");
+        assert_eq!(request.method(), http::Method::GET);
+        assert_eq!(request.uri().to_string(), "/api/v1/nodes?&limit=500");
+
+        let node_list_response_body = get_file_content(
+            Path::new(".")
+                .join("src")
+                .join("reconciler")
+                .join("testfiles")
+                .join("list-nodes.json"),
+        );
+
+        response.send_response(
+            Response::builder()
+                .body(Body::from(node_list_response_body.into_bytes()))
+                .unwrap(),
+        );
+
+        let (request, response) = handle
+            .next_request()
+            .await
+            .expect("service not called second time");
+        assert_eq!(request.method(), http::Method::PUT);
+        assert_eq!(
+            request.uri().to_string(),
+            "/api/v1/nodes/aks-zeus1-41950716-vmss000082?&fieldManager=tainter"
+        );
+
+        let node_put_response_body = get_file_content(
+            Path::new(".")
+                .join("src")
+                .join("reconciler")
+                .join("testfiles")
+                .join("node-put-invalid-response.json"),
+        );
+
+        response.send_response(
+            Response::builder()
+                .body(Body::from(node_put_response_body.into_bytes()))
+                .unwrap(),
+        );
+
+        let (_, _) = handle
+            .next_request()
+            .await
+            .expect("service not called third time");
+
+        assert!(logs_contain(
+            r#"Error adding taint to node error="Error deserializing response" node="aks-zeus1-41950716-vmss000082""#
+        ))
+    }
 
     #[tokio::test]
     #[traced_test]
@@ -132,7 +222,6 @@ mod tests {
                 .unwrap(),
         );
 
-        // TODO which response do we return here? What response does a real patch return?
         let (request, response) = handle
             .next_request()
             .await
@@ -144,8 +233,7 @@ mod tests {
         );
         let bytes = request.into_body().collect_bytes().await.unwrap();
         let body_string = String::from_utf8(bytes.into_iter().collect()).unwrap();
-        let node: k8s_openapi::api::core::v1::Node =
-            serde_json::from_str(body_string.as_str()).unwrap();
+        let node: Node = serde_json::from_str(body_string.as_str()).unwrap();
         let taints = node.spec.unwrap().taints.unwrap();
         assert_eq!(taints.len(), 2);
         let taint = taints.get(1).unwrap();
@@ -178,7 +266,10 @@ mod tests {
 
         assert!(logs_contain(
             r#"Processing node node_name="aks-zeus1-41950716-vmss000082""#
-        ))
+        ));
+        assert!(logs_contain(
+            r#"Successfully added taint to node node="aks-zeus1-41950716-vmss000082" taint="node.kubernetes.io/out-of-service:NoExecute/"#
+        ));
     }
 
     fn get_file_content(path: PathBuf) -> String {
