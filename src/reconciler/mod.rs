@@ -123,11 +123,11 @@ mod tests {
     use std::io::ErrorKind;
     use std::path::{Path, PathBuf};
     use std::{fs, io};
+    use tower_test::mock::Handle;
     use tracing_test::traced_test;
 
-    #[tokio::test]
-    #[traced_test]
-    async fn test_start_processes_node_and_logs_error_if_update_fails() {
+    async fn setup(list_response_file: &str) -> Handle<Request<Body>, Response<Body>> {
+        // https://kube.rs/controllers/testing/#example.
         let (mock_service, mut handle) = tower_test::mock::pair::<Request<Body>, Response<Body>>();
 
         let client = Client::new(mock_service, "default");
@@ -138,7 +138,7 @@ mod tests {
             reconciler.start().await;
         });
 
-        let (request, response) = handle.next_request().await.expect("service not called");
+        let (request, response) = handle.next_request().await.expect("list nodes not called");
         assert_eq!(request.method(), http::Method::GET);
         assert_eq!(request.uri().to_string(), "/api/v1/nodes?&limit=500");
 
@@ -147,7 +147,7 @@ mod tests {
                 .join("src")
                 .join("reconciler")
                 .join("testfiles")
-                .join("list-nodes.json"),
+                .join(list_response_file),
         );
 
         response.send_response(
@@ -156,10 +156,15 @@ mod tests {
                 .unwrap(),
         );
 
-        let (request, response) = handle
-            .next_request()
-            .await
-            .expect("service not called second time");
+        handle
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn test_start_processes_node_and_logs_error_if_update_fails() {
+        let mut handle = setup("list-nodes.json").await;
+
+        let (request, response) = handle.next_request().await.expect("PUT node not called");
         assert_eq!(request.method(), http::Method::PUT);
         assert_eq!(
             request.uri().to_string(),
@@ -180,10 +185,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let (_, _) = handle
-            .next_request()
-            .await
-            .expect("service not called third time");
+        let (_, _) = handle.next_request().await.expect("watch nodes not called");
 
         assert!(logs_contain(
             r#"Error adding taint to node error="Error deserializing response" node="aks-zeus1-41950716-vmss000082""#
@@ -193,39 +195,9 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn test_start_processes_node_and_adds_taint() {
-        // https://kube.rs/controllers/testing/#example.
-        let (mock_service, mut handle) = tower_test::mock::pair::<Request<Body>, Response<Body>>();
+        let mut handle = setup("list-nodes.json").await;
 
-        let client = Client::new(mock_service, "default");
-
-        let reconciler = Reconciler::new(client);
-
-        tokio::spawn(async move {
-            reconciler.start().await;
-        });
-
-        let (request, response) = handle.next_request().await.expect("service not called");
-        assert_eq!(request.method(), http::Method::GET);
-        assert_eq!(request.uri().to_string(), "/api/v1/nodes?&limit=500");
-
-        let node_list_response_body = get_file_content(
-            Path::new(".")
-                .join("src")
-                .join("reconciler")
-                .join("testfiles")
-                .join("list-nodes.json"),
-        );
-
-        response.send_response(
-            Response::builder()
-                .body(Body::from(node_list_response_body.into_bytes()))
-                .unwrap(),
-        );
-
-        let (request, response) = handle
-            .next_request()
-            .await
-            .expect("service not called second time");
+        let (request, response) = handle.next_request().await.expect("PUT node not called");
         assert_eq!(request.method(), http::Method::PUT);
         assert_eq!(
             request.uri().to_string(),
@@ -253,10 +225,7 @@ mod tests {
                 .unwrap(),
         );
 
-        let (request, _) = handle
-            .next_request()
-            .await
-            .expect("service not called third time");
+        let (request, _) = handle.next_request().await.expect("watch nodes not called");
         assert_eq!(request.method(), http::Method::GET);
         assert_eq!(
             request.uri().to_string(),
@@ -308,7 +277,10 @@ mod tests {
             reconciler.start().await;
         });
 
-        let (request, response) = handle.next_request().await.expect("service not called");
+        let (request, response) = handle
+            .next_request()
+            .await
+            .expect("GET nodes not called first time");
         assert_eq!(request.method(), http::Method::GET);
         assert_eq!(request.uri().to_string(), "/api/v1/nodes?&limit=500");
 
@@ -318,7 +290,7 @@ mod tests {
         let (request, _) = handle
             .next_request()
             .await
-            .expect("service not called second time");
+            .expect("GET nodes not called second time");
         assert_eq!(request.method(), http::Method::GET);
         assert_eq!(request.uri().to_string(), "/api/v1/nodes?&limit=500");
 
