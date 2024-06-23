@@ -68,7 +68,7 @@ impl Reconciler {
 
         let mut node = node.clone();
         let mut spec = node.spec.expect("node should have a spec");
-        // TODO what if node has no taints?
+        // We deliberately unwrap_or_default to gracefully handle nodes with no taints.
         let mut taints = spec.taints.unwrap_or_default();
         taints.push(taint);
         spec.taints = Some(taints);
@@ -157,6 +157,26 @@ mod tests {
         );
 
         handle
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn test_start_handles_node_with_no_taints() {
+        let mut handle = setup("list-nodes-no-taints.json").await;
+
+        let (request, _) = handle.next_request().await.expect("PUT node not called");
+        assert_eq!(request.method(), http::Method::PUT);
+        assert_eq!(
+            request.uri().to_string(),
+            "/api/v1/nodes/aks-apollo1-41950716-vmss000001?&fieldManager=tainter"
+        );
+        let bytes = request.into_body().collect_bytes().await.unwrap();
+        let body_string = String::from_utf8(bytes.into_iter().collect()).unwrap();
+        let node: Node = serde_json::from_str(body_string.as_str()).unwrap();
+        let taints = node.spec.unwrap().taints.unwrap();
+        assert_eq!(taints.len(), 1);
+        let taint = taints.get(0).unwrap();
+        assert_out_of_service_taint(taint);
     }
 
     #[tokio::test]
