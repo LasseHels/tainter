@@ -121,8 +121,7 @@ impl Reconciler {
         for condition in conditions {
             match condition.type_.as_str() {
                 "Ready" => match condition.status.as_str() {
-                    "False" => node_is_ready = false,
-                    "Unknown" => node_is_ready = false,
+                    "False" | "Unknown" => node_is_ready = false,
                     _ => {}
                 },
                 "VMEventScheduled" => {
