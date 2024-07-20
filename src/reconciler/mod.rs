@@ -1,7 +1,7 @@
 use std::pin::pin;
 
 use futures::TryStreamExt;
-use k8s_openapi::api::core::v1::{Node, Taint};
+use k8s_openapi::api::core::v1::{Node, NodeCondition, Taint};
 use kube::api::PostParams;
 use kube::runtime::reflector::Lookup;
 use kube::{
@@ -53,8 +53,22 @@ impl Reconciler {
         let node_name = node.name().expect("node should have a name");
         tracing::info!(node_name = node_name.as_ref(), "Processing node");
 
-        // TODO: only apply out-of-service taint if node doesn't already have it.
-        // TODO: only apply out-of-service taint if node fulfils criteria.
+        let status = node.status.as_ref().expect("node should have a status");
+        let conditions = status.conditions.as_ref();
+
+        // If a node has no conditions, then we cannot determine whether it's eligible.
+        // I'm unsure if this can happen in practice.
+        if conditions.is_none() {
+            return;
+        }
+
+        if !self.is_node_eligible(conditions.unwrap()) {
+            return;
+        }
+
+        let mut node = node.clone();
+
+        // TODO: don't apply out-of-service taint if node already has it.
 
         let now = chrono::offset::Utc::now();
 
@@ -66,7 +80,6 @@ impl Reconciler {
         };
         let taint_string = self.taint_to_string(&taint);
 
-        let mut node = node.clone();
         let mut spec = node.spec.expect("node should have a spec");
         // We deliberately unwrap_or_default to gracefully handle nodes with no taints.
         let mut taints = spec.taints.unwrap_or_default();
@@ -98,6 +111,29 @@ impl Reconciler {
                 "Successfully added taint to node"
             )
         }
+    }
+
+    fn is_node_eligible(&self, conditions: &Vec<NodeCondition>) -> bool {
+        let mut node_has_scheduled_vm_event = false;
+        let mut node_is_ready = true;
+
+        // TODO: maybe some logging here?
+        for condition in conditions {
+            match condition.type_.as_str() {
+                "Ready" => match condition.status.as_str() {
+                    "False" | "Unknown" => node_is_ready = false,
+                    _ => {}
+                },
+                "VMEventScheduled" => {
+                    if condition.status.as_str() == "True" {
+                        node_has_scheduled_vm_event = true
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        node_has_scheduled_vm_event && !node_is_ready
     }
 
     fn taint_to_string(&self, taint: &Taint) -> String {
@@ -142,13 +178,7 @@ mod tests {
         assert_eq!(request.method(), http::Method::GET);
         assert_eq!(request.uri().to_string(), "/api/v1/nodes?&limit=500");
 
-        let node_list_response_body = get_file_content(
-            Path::new(".")
-                .join("src")
-                .join("reconciler")
-                .join("testfiles")
-                .join(list_response_file),
-        );
+        let node_list_response_body = get_test_file(list_response_file);
 
         response.send_response(
             Response::builder()
@@ -161,28 +191,8 @@ mod tests {
 
     #[tokio::test]
     #[traced_test]
-    async fn test_start_handles_node_with_no_taints() {
-        let mut handle = setup("list-nodes-no-taints.json").await;
-
-        let (request, _) = handle.next_request().await.expect("PUT node not called");
-        assert_eq!(request.method(), http::Method::PUT);
-        assert_eq!(
-            request.uri().to_string(),
-            "/api/v1/nodes/aks-apollo1-41950716-vmss000001?&fieldManager=tainter"
-        );
-        let bytes = request.into_body().collect_bytes().await.unwrap();
-        let body_string = String::from_utf8(bytes.into_iter().collect()).unwrap();
-        let node: Node = serde_json::from_str(body_string.as_str()).unwrap();
-        let taints = node.spec.unwrap().taints.unwrap();
-        assert_eq!(taints.len(), 1);
-        let taint = taints.get(0).unwrap();
-        assert_out_of_service_taint(taint);
-    }
-
-    #[tokio::test]
-    #[traced_test]
     async fn test_start_processes_node_and_logs_error_if_update_fails() {
-        let mut handle = setup("list-nodes.json").await;
+        let mut handle = setup("list-nodes-single-eligible.json").await;
 
         let (request, response) = handle.next_request().await.expect("PUT node not called");
         assert_eq!(request.method(), http::Method::PUT);
@@ -191,13 +201,7 @@ mod tests {
             "/api/v1/nodes/aks-zeus1-41950716-vmss000082?&fieldManager=tainter"
         );
 
-        let node_put_response_body = get_file_content(
-            Path::new(".")
-                .join("src")
-                .join("reconciler")
-                .join("testfiles")
-                .join("node-put-invalid-response.json"),
-        );
+        let node_put_response_body = get_test_file("node-put-invalid-response.json");
 
         response.send_response(
             Response::builder()
@@ -214,14 +218,14 @@ mod tests {
 
     #[tokio::test]
     #[traced_test]
-    async fn test_start_processes_node_and_adds_taint() {
-        let mut handle = setup("list-nodes.json").await;
+    async fn test_start_processes_nodes_and_adds_taint() {
+        let mut handle = setup("list-nodes-multiple-eligible.json").await;
 
         let (request, response) = handle.next_request().await.expect("PUT node not called");
         assert_eq!(request.method(), http::Method::PUT);
         assert_eq!(
             request.uri().to_string(),
-            "/api/v1/nodes/aks-zeus1-41950716-vmss000082?&fieldManager=tainter"
+            "/api/v1/nodes/aks-artemis1-41950716-vmss000082?&fieldManager=tainter"
         );
         let bytes = request.into_body().collect_bytes().await.unwrap();
         let body_string = String::from_utf8(bytes.into_iter().collect()).unwrap();
@@ -231,17 +235,36 @@ mod tests {
         let taint = taints.get(1).unwrap();
         assert_out_of_service_taint(taint);
 
-        let node_put_response_body = get_file_content(
-            Path::new(".")
-                .join("src")
-                .join("reconciler")
-                .join("testfiles")
-                .join("node-put-success.json"),
+        response.send_response(
+            Response::builder()
+                .body(Body::from(
+                    get_test_file("node-put-success.json").into_bytes(),
+                ))
+                .unwrap(),
         );
+
+        let (request, response) = handle
+            .next_request()
+            .await
+            .expect("PUT node not called second time");
+        assert_eq!(request.method(), http::Method::PUT);
+        assert_eq!(
+            request.uri().to_string(),
+            "/api/v1/nodes/aks-athena1-41950716-vmss000082?&fieldManager=tainter"
+        );
+        let bytes = request.into_body().collect_bytes().await.unwrap();
+        let body_string = String::from_utf8(bytes.into_iter().collect()).unwrap();
+        let node: Node = serde_json::from_str(body_string.as_str()).unwrap();
+        let taints = node.spec.unwrap().taints.unwrap();
+        assert_eq!(taints.len(), 1);
+        let taint = taints.get(0).unwrap();
+        assert_out_of_service_taint(taint);
 
         response.send_response(
             Response::builder()
-                .body(Body::from(node_put_response_body.into_bytes()))
+                .body(Body::from(
+                    get_test_file("node-put-success.json").into_bytes(),
+                ))
                 .unwrap(),
         );
 
@@ -254,15 +277,25 @@ mod tests {
         );
 
         assert!(logs_contain(
-            r#"Processing node node_name="aks-zeus1-41950716-vmss000082""#
+            r#"Processing node node_name="aks-artemis1-41950716-vmss000082""#
         ));
         assert!(logs_contain(
-            r#"Successfully added taint to node node="aks-zeus1-41950716-vmss000082" taint="node.kubernetes.io/out-of-service:NoExecute/"#
+            r#"Successfully added taint to node node="aks-artemis1-41950716-vmss000082" taint="node.kubernetes.io/out-of-service:NoExecute/"#
         ));
     }
 
     fn get_file_content(path: PathBuf) -> String {
         fs::read_to_string(path).unwrap()
+    }
+
+    fn get_test_file(name: &str) -> String {
+        get_file_content(
+            Path::new(".")
+                .join("src")
+                .join("reconciler")
+                .join("testfiles")
+                .join(name),
+        )
     }
 
     fn assert_out_of_service_taint(taint: &Taint) {
