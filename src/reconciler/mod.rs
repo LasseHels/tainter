@@ -62,7 +62,7 @@ impl Reconciler {
             return;
         }
 
-        if !self.is_node_eligible(conditions.unwrap()) {
+        if !self.is_node_eligible(node_name.as_ref(), conditions.unwrap()) {
             return;
         }
 
@@ -113,7 +113,7 @@ impl Reconciler {
         }
     }
 
-    fn is_node_eligible(&self, conditions: &Vec<NodeCondition>) -> bool {
+    fn is_node_eligible(&self, node_name: &str, conditions: &Vec<NodeCondition>) -> bool {
         let mut node_has_scheduled_vm_event = false;
         let mut node_is_ready = true;
 
@@ -121,11 +121,23 @@ impl Reconciler {
         for condition in conditions {
             match condition.type_.as_str() {
                 "Ready" => match condition.status.as_str() {
-                    "False" | "Unknown" => node_is_ready = false,
+                    "False" | "Unknown" => {
+                        tracing::info!(
+                            node = node_name,
+                            condition = self.condition_to_string(condition),
+                            "Node is not ready based on condition"
+                        );
+                        node_is_ready = false
+                    }
                     _ => {}
                 },
                 "VMEventScheduled" => {
                     if condition.status.as_str() == "True" {
+                        tracing::info!(
+                            node = node_name,
+                            condition = self.condition_to_string(condition),
+                            "Node has a scheduled event based on condition"
+                        );
                         node_has_scheduled_vm_event = true
                     }
                 }
@@ -146,6 +158,10 @@ impl Reconciler {
             Some(time_added) => format!("/{}", time_added.0),
         };
         format!("{}{value}:{}{time_added}", taint.key, taint.effect)
+    }
+
+    fn condition_to_string(&self, condition: &NodeCondition) -> String {
+        format!("{:?}", condition)
     }
 }
 
@@ -278,6 +294,12 @@ mod tests {
 
         assert!(logs_contain(
             r#"Processing node node_name="aks-artemis1-41950716-vmss000082""#
+        ));
+        assert!(logs_contain(
+            r#"Node is not ready based on condition node="aks-artemis1-41950716-vmss000082" condition="NodeCondition { last_heartbeat_time: Some(Time(2024-05-12T11:18:56Z)), last_transition_time: Some(Time(2024-05-07T08:32:07Z)), message: Some(\"kubelet is not posting ready status\"), reason: Some(\"KubeletReady\"), status: \"False\", type_: \"Ready\" }""#
+        ));
+        assert!(logs_contain(
+            r#"Node has a scheduled event based on condition node="aks-artemis1-41950716-vmss000082" condition="NodeCondition { last_heartbeat_time: Some(Time(2024-05-12T11:21:10Z)), last_transition_time: Some(Time(2024-05-07T08:32:09Z)), message: Some(\"VM has scheduled event\"), reason: Some(\"VMEventScheduled\"), status: \"True\", type_: \"VMEventScheduled\" }""#
         ));
         assert!(logs_contain(
             r#"Successfully added taint to node node="aks-artemis1-41950716-vmss000082" taint="node.kubernetes.io/out-of-service:NoExecute/"#
