@@ -68,10 +68,10 @@ impl Reconciler {
 
         let mut node = node.clone();
 
-        // TODO: don't apply out-of-service taint if node already has it.
-
+        let mut spec = node.spec.expect("node should have a spec");
+        // We deliberately unwrap_or_default to gracefully handle nodes with no taints.
+        let mut taints = spec.taints.unwrap_or_default();
         let now = chrono::offset::Utc::now();
-
         let taint = Taint {
             effect: "NoExecute".to_string(),
             key: "node.kubernetes.io/out-of-service".to_string(),
@@ -80,9 +80,16 @@ impl Reconciler {
         };
         let taint_string = self.taint_to_string(&taint);
 
-        let mut spec = node.spec.expect("node should have a spec");
-        // We deliberately unwrap_or_default to gracefully handle nodes with no taints.
-        let mut taints = spec.taints.unwrap_or_default();
+        // Don't attempt to add the taint if the node already has it.
+        if self.node_has_taint(&taints, &taint) {
+            tracing::info!(
+                node = node_name.as_ref(),
+                taint = taint_string,
+                "Node is eligible but already has taint"
+            );
+            return;
+        }
+
         taints.push(taint);
         spec.taints = Some(taints);
         node.spec = Some(spec);
@@ -113,11 +120,29 @@ impl Reconciler {
         }
     }
 
+    fn node_has_taint(&self, haystack: &Vec<Taint>, needle: &Taint) -> bool {
+        for taint in haystack {
+            if self.identical_taints(taint, needle) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    // Identical taints are defined as ones that have the same key and effect.
+    // See this error from the Kubernetes API:
+    //
+    // Node "XYZ" is invalid: metadata.taints[1]: Duplicate value: core.Taint{Key:"kubernetes.azure.com/scalesetpriority", Value:"premium", Effect:"NoSchedule", TimeAdded:<nil>}: taints must be unique by key and effect pair
+    //
+    fn identical_taints(&self, this: &Taint, that: &Taint) -> bool {
+        this.key == that.key && this.effect == that.effect
+    }
+
     fn is_node_eligible(&self, node_name: &str, conditions: &Vec<NodeCondition>) -> bool {
         let mut node_has_scheduled_vm_event = false;
         let mut node_is_ready = true;
 
-        // TODO: maybe some logging here?
         for condition in conditions {
             match condition.type_.as_str() {
                 "Ready" => match condition.status.as_str() {
@@ -229,6 +254,24 @@ mod tests {
 
         assert!(logs_contain(
             r#"Error adding taint to node error="Error deserializing response" node="aks-zeus1-41950716-vmss000082""#
+        ))
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn test_start_adds_taint_only_if_node_does_not_already_have_it() {
+        let mut handle = setup("list-nodes-eligible-and-has-taint.json").await;
+
+        let (request, _) = handle.next_request().await.expect("watch nodes not called");
+        assert_eq!(request.method(), http::Method::GET);
+        assert_eq!(
+            request.uri().to_string(),
+            "/api/v1/nodes?&watch=true&timeoutSeconds=290&\
+        allowWatchBookmarks=true&resourceVersion=test"
+        );
+
+        assert!(logs_contain(
+            r#"Node is eligible but already has taint node="aks-artemis1-41950716-vmss000082" taint="node.kubernetes.io/out-of-service:NoExecute"#
         ))
     }
 
