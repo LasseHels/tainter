@@ -1,0 +1,13 @@
+{
+  "kind": "Status",
+  "apiVersion": "v1",
+  "metadata": {},
+  "status": "Failure",
+  "message": "Operation cannot be fulfilled on nodes \"aks-zeus1-41950716-vmss000082\": the object has been modified; please apply your changes to the latest version and try again",
+  "reason": "Conflict",
+  "details": {
+    "name": "aks-zeus1-41950716-vmss000082",
+    "kind": "nodes"
+  },
+  "code": 409
+}
