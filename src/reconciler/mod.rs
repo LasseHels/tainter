@@ -391,7 +391,7 @@ mod tests {
         assert!(logs_contain(
             r#"Received conflict error when trying to add taint to node error="ApiError: Operation cannot be fulfilled on nodes \"aks-zeus1-41950716-vmss000082\": the object has been modified; please apply your changes to the latest version and try again"#
         ));
-        assert_ne!(logs_contain("Error adding taint to node"), true)
+        assert!(!logs_contain("Error adding taint to node"))
     }
 
     fn get_file_content(path: PathBuf) -> String {
