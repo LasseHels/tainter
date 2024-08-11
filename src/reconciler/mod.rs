@@ -96,21 +96,33 @@ impl Reconciler {
 
         let params = &PostParams {
             dry_run: false,
-            // TODO: perhaps field_manager should be configurable.
             field_manager: Some(String::from("tainter")),
         };
-        // TODO: handle 409 Conflict HTTP error.
-        // TODO: handle duplicate taint error.
         if let Err(error) = self
             .node_client
             .replace(node_name.as_ref(), params, &node)
             .await
         {
-            tracing::error!(
-                error = error.to_string(),
-                node = node_name.as_ref(),
-                "Error adding taint to node"
-            )
+            let error_string = error.to_string();
+            // Conflict errors can happen when another process (perhaps another Tainter process?)
+            // modifies a node before this Tainter process can execute its update request.
+            // When this happens, Tainter will receive an HTTP 409 Conflict response.
+            // The fact that the node was modified means that Tainter will pick up another
+            // modification event and re-evaluate the node, essentially providing automatic retry.
+            if self.is_conflict_error(error_string.as_str()) {
+                tracing::info!(
+                    error = error_string,
+                    node = node_name.as_ref(),
+                    taint = taint_string,
+                    "Received conflict error when trying to add taint to node"
+                )
+            } else {
+                tracing::error!(
+                    error = error_string,
+                    node = node_name.as_ref(),
+                    "Error adding taint to node"
+                )
+            }
         } else {
             tracing::info!(
                 node = node_name.as_ref(),
@@ -118,6 +130,10 @@ impl Reconciler {
                 "Successfully added taint to node"
             )
         }
+    }
+
+    fn is_conflict_error(&self, error_string: &str) -> bool {
+        error_string.contains("the object has been modified; please apply your changes to the latest version and try again")
     }
 
     fn node_has_taint(&self, haystack: &Vec<Taint>, needle: &Taint) -> bool {
@@ -347,6 +363,35 @@ mod tests {
         assert!(logs_contain(
             r#"Successfully added taint to node node="aks-artemis1-41950716-vmss000082" taint="node.kubernetes.io/out-of-service:NoExecute/"#
         ));
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn test_start_gracefully_handles_conflict_error() {
+        let mut handle = setup("list-nodes-single-eligible.json").await;
+
+        let (request, response) = handle.next_request().await.expect("PUT node not called");
+        assert_eq!(request.method(), http::Method::PUT);
+        assert_eq!(
+            request.uri().to_string(),
+            "/api/v1/nodes/aks-zeus1-41950716-vmss000082?&fieldManager=tainter"
+        );
+
+        let node_put_response_body = get_test_file("node-put-conflict-response.json");
+
+        response.send_response(
+            Response::builder()
+                .status(409)
+                .body(Body::from(node_put_response_body.into_bytes()))
+                .unwrap(),
+        );
+
+        let (_, _) = handle.next_request().await.expect("watch nodes not called");
+
+        assert!(logs_contain(
+            r#"Received conflict error when trying to add taint to node error="ApiError: Operation cannot be fulfilled on nodes \"aks-zeus1-41950716-vmss000082\": the object has been modified; please apply your changes to the latest version and try again"#
+        ));
+        assert_ne!(logs_contain("Error adding taint to node"), true)
     }
 
     fn get_file_content(path: PathBuf) -> String {
