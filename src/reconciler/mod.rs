@@ -124,6 +124,7 @@ impl Reconciler {
             return;
         }
 
+        let taints_string = format!("{:?}", taints_to_add);
         taints.append(taints_to_add.as_mut());
         spec.taints = Some(taints);
         node.spec = Some(spec);
@@ -132,6 +133,11 @@ impl Reconciler {
             dry_run: false,
             field_manager: Some(String::from("tainter")),
         };
+        tracing::info!(
+            node = node_name.as_ref(),
+            taints = taints_string,
+            "Adding taints to node"
+        );
         if let Err(error) = self
             .node_client
             .replace(node_name.as_ref(), params, &node)
@@ -147,21 +153,22 @@ impl Reconciler {
                 tracing::info!(
                     error = error_string,
                     node = node_name.as_ref(),
-                    // taint = taint_string, // TODO figure out what to log here (if anything).
-                    "Received conflict error when trying to add taint to node"
+                    taints = taints_string,
+                    "Received conflict error when trying to add taints to node"
                 )
             } else {
                 tracing::error!(
                     error = error_string,
                     node = node_name.as_ref(),
-                    "Error adding taint to node"
+                    taints = taints_string,
+                    "Error adding taints to node"
                 )
             }
         } else {
             tracing::info!(
                 node = node_name.as_ref(),
-                // taint = taint_string, // TODO figure out what to log here (if anything).
-                "Successfully added taint to node"
+                taints = taints_string,
+                "Successfully added taints to node"
             )
         }
     }
@@ -278,34 +285,53 @@ mod tests {
         handle
     }
 
-    // TODO test multiple conditions?
-
     #[tokio::test]
     #[traced_test]
     async fn test_start_checks_conditions_with_regex_and_adds_taints() {
-        let matchers = vec![Configuration {
-            taint: Taint {
-                effect: "NoExecute".to_string(),
-                key: "pressure".to_string(),
-                time_added: None,
-                value: Some("memory".to_string()),
+        let matchers = vec![
+            Configuration {
+                taint: Taint {
+                    effect: "NoExecute".to_string(),
+                    key: "pressure".to_string(),
+                    time_added: None,
+                    value: Some("memory".to_string()),
+                },
+                conditions: vec![Condition {
+                    type_: Regex::new("OutOfMemory").unwrap(),
+                    status: Regex::new("True").unwrap(),
+                }],
             },
-            conditions: vec![Condition {
-                type_: Regex::new("OutOfMemory").unwrap(),
-                status: Regex::new("True").unwrap(),
-            }],
-        }];
+            Configuration {
+                taint: Taint {
+                    effect: "NoSchedule".to_string(),
+                    key: "network-partition".to_string(),
+                    time_added: None,
+                    value: None,
+                },
+                conditions: vec![
+                    Condition {
+                        type_: Regex::new("NetworkInterfaceCard").unwrap(),
+                        status: Regex::new("Kaput|Ruined").unwrap(),
+                    },
+                    Condition {
+                        type_: Regex::new("PrivateLink").unwrap(),
+                        status: Regex::new("Severed").unwrap(),
+                    },
+                ],
+            },
+        ];
         let mut handle = setup("list-nodes-multiple-eligible-regex.json", matchers).await;
 
-        let (request, response) = handle.next_request().await.expect("PUT node not called");
+        let (request, response) = handle
+            .next_request()
+            .await
+            .expect("PUT node not called for aks-artemis1-41950716-vmss000082");
         assert_eq!(request.method(), http::Method::PUT);
         assert_eq!(
             request.uri().to_string(),
             "/api/v1/nodes/aks-artemis1-41950716-vmss000082?&fieldManager=tainter"
         );
-        let bytes = request.into_body().collect_bytes().await.unwrap();
-        let body_string = String::from_utf8(bytes.into_iter().collect()).unwrap();
-        let node: Node = serde_json::from_str(body_string.as_str()).unwrap();
+        let node = node_from_body(request).await;
         let taints = node.spec.unwrap().taints.unwrap();
         assert_eq!(taints.len(), 2);
         let taint = taints.get(1).unwrap();
@@ -332,6 +358,54 @@ mod tests {
                 .unwrap(),
         );
 
+        let (request, response) = handle
+            .next_request()
+            .await
+            .expect("PUT node not called for aks-poseidon1-41950716-vmss000082");
+        assert_eq!(request.method(), http::Method::PUT);
+        assert_eq!(
+            request.uri().to_string(),
+            "/api/v1/nodes/aks-poseidon1-41950716-vmss000082?&fieldManager=tainter"
+        );
+        let node = node_from_body(request).await;
+        let taints = node.spec.unwrap().taints.unwrap();
+        assert_eq!(taints.len(), 3);
+        let taint = taints.get(1).unwrap();
+        let expected = Taint {
+            effect: "NoExecute".to_string(),
+            key: "pressure".to_string(),
+            time_added: Some(Time(Utc::now())),
+            value: Some("memory".to_string()),
+        };
+        assert_eq!(taint.effect, expected.effect);
+        assert_eq!(taint.key, expected.key);
+        assert_eq!(taint.value, expected.value);
+        assert!(within_duration(
+            taint.time_added.as_ref().unwrap().0,
+            expected.time_added.as_ref().unwrap().0,
+            chrono::Duration::seconds(5),
+        ));
+
+        let taint = taints.get(2).unwrap();
+        let expected = Taint {
+            effect: "NoSchedule".to_string(),
+            key: "network-partition".to_string(),
+            time_added: None,
+            value: None,
+        };
+        assert_eq!(taint.effect, expected.effect);
+        assert_eq!(taint.key, expected.key);
+        assert_eq!(taint.value, expected.value);
+        assert_eq!(taint.time_added, expected.time_added);
+
+        response.send_response(
+            Response::builder()
+                .body(Body::from(
+                    get_test_file("node-put-success.json").into_bytes(),
+                ))
+                .unwrap(),
+        );
+
         let (request, _) = handle.next_request().await.expect("watch nodes not called");
         assert_eq!(request.method(), http::Method::GET);
         assert_eq!(
@@ -347,10 +421,13 @@ mod tests {
             r#"Processing node node_name="aks-artemis1-41950716-vmss000082""#
         ));
         assert!(logs_contain(
-            r#"Successfully added taint to node node="aks-artemis1-41950716-vmss000082""#
+            r#"Adding taints to node node="aks-artemis1-41950716-vmss000082" taints="[Taint { effect: \"NoExecute\", key: \"pressure\""#
         ));
         assert!(logs_contain(
-            r#"Node matches condition node="aks-artemis1-41950716-vmss000082" node_condition="NodeCondition { last_heartbeat_time: Some(Time(2024-05-12T11:21:10Z)), last_transition_time: Some(Time(2024-05-07T08:32:09Z)), message: Some(\"The VM has surplus memory\"), reason: Some(\"SurplusMemory\"), status: \"True\", type_: \"OutOfMemory\" }" condition="Condition { type_: Regex(\"OutOfMemory\"), status: Regex(\"True\") }""#
+            r#"Successfully added taints to node node="aks-artemis1-41950716-vmss000082" taints="[Taint { effect: \"NoExecute\", key: \"pressure\""#
+        ));
+        assert!(logs_contain(
+            r#"Node matches condition node="aks-artemis1-41950716-vmss000082" node_condition="NodeCondition { last_heartbeat_time: Some(Time(2024-05-12T11:21:10Z)), last_transition_time: Some(Time(2024-05-07T08:32:09Z)), message: Some(\"The VM has no surplus memory\"), reason: Some(\"NoSurplusMemory\"), status: \"True\", type_: \"OutOfMemory\" }" condition="Condition { type_: Regex(\"OutOfMemory\"), status: Regex(\"True\") }""#
         ));
         assert!(logs_contain(
             r#"Processing node node_name="aks-athena1-41950716-vmss000082""#
@@ -395,7 +472,7 @@ mod tests {
         let (_, _) = handle.next_request().await.expect("watch nodes not called");
 
         assert!(logs_contain(
-            r#"Error adding taint to node error="Error deserializing response" node="aks-zeus1-41950716-vmss000082""#
+            r#"Error adding taints to node error="Error deserializing response" node="aks-zeus1-41950716-vmss000082" taints="[Taint { effect: \"NoExecute\", key: \"event\""#
         ))
     }
 
@@ -465,7 +542,7 @@ mod tests {
         let (_, _) = handle.next_request().await.expect("watch nodes not called");
 
         assert!(logs_contain(
-            r#"Received conflict error when trying to add taint to node error="ApiError: Operation cannot be fulfilled on nodes \"aks-zeus1-41950716-vmss000082\": the object has been modified; please apply your changes to the latest version and try again"#
+            r#"Received conflict error when trying to add taints to node error="ApiError: Operation cannot be fulfilled on nodes \"aks-zeus1-41950716-vmss000082\": the object has been modified; please apply your changes to the latest version and try again: Conflict (ErrorResponse { status: \"Failure\", message: \"Operation cannot be fulfilled on nodes \\\"aks-zeus1-41950716-vmss000082\\\": the object has been modified; please apply your changes to the latest version and try again\", reason: \"Conflict\", code: 409 })" node="aks-zeus1-41950716-vmss000082" taints="[Taint { effect: \"NoSchedule\", key: \"not-ready\", time_added: None, value: None }]"#
         ));
         assert!(!logs_contain("Error adding taint to node"))
     }
@@ -482,6 +559,14 @@ mod tests {
                 .join("testfiles")
                 .join(name),
         )
+    }
+
+    async fn node_from_body(request: Request<Body>) -> Node {
+        let bytes = request.into_body().collect_bytes().await.unwrap();
+        let body_string = String::from_utf8(bytes.into_iter().collect()).unwrap();
+        let node: Node = serde_json::from_str(body_string.as_str()).unwrap();
+
+        node
     }
 
     // assert that time is within plus minus duration of target.
