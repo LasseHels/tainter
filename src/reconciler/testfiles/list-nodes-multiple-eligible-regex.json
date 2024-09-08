@@ -59,10 +59,18 @@
           {
             "lastHeartbeatTime": "2024-05-12T11:21:10Z",
             "lastTransitionTime": "2024-05-07T08:32:09Z",
-            "message": "The VM has surplus memory",
-            "reason": "SurplusMemory",
+            "message": "The VM has no surplus memory",
+            "reason": "NoSurplusMemory",
             "status": "True",
             "type": "OutOfMemory"
+          },
+          {
+            "lastHeartbeatTime": "2024-05-12T11:21:10Z",
+            "lastTransitionTime": "2024-05-07T08:32:09Z",
+            "message": "PrivateLink has been severed",
+            "reason": "PrivateLink unstable",
+            "status": "Severed",
+            "type": "PrivateLink"
           }
         ],
         "nodeInfo": {
@@ -148,6 +156,14 @@
           {
             "lastHeartbeatTime": "2024-05-12T11:21:10Z",
             "lastTransitionTime": "2024-05-07T08:32:09Z",
+            "message": "The VM has no surplus memory",
+            "reason": "NoSurplusMemory",
+            "status": "True",
+            "type": "OutOfMemory"
+          },
+          {
+            "lastHeartbeatTime": "2024-05-12T11:21:10Z",
+            "lastTransitionTime": "2024-05-07T08:32:09Z",
             "message": "The VM has CPU thrashing",
             "reason": "Thrashing",
             "status": "True",
@@ -160,6 +176,30 @@
             "reason": "ChillCPU",
             "status": "False",
             "type": "ExcessiveWaitTime"
+          },
+          {
+            "lastHeartbeatTime": "2024-05-12T11:18:56Z",
+            "lastTransitionTime": "2024-05-07T08:32:07Z",
+            "message": "PrivateLink has been severed",
+            "reason": "PrivateLink unstable",
+            "status": "Severed",
+            "type": "PrivateLink"
+          },
+          {
+            "lastHeartbeatTime": "2024-05-12T11:18:56Z",
+            "lastTransitionTime": "2024-05-07T08:32:07Z",
+            "message": "Someone torched the NIC",
+            "reason": "NIC is ruined",
+            "status": "Ruined",
+            "type": "NetworkInterfaceCard"
+          },
+          {
+            "lastHeartbeatTime": "2024-05-12T11:18:56Z",
+            "lastTransitionTime": "2024-05-07T08:32:07Z",
+            "message": "Someone torched the NIC",
+            "reason": "NIC is ruined",
+            "status": "Ruined",
+            "type": "NetworkInterfaceCard"
           }
         ],
         "nodeInfo": {
