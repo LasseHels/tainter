@@ -1,0 +1,20 @@
+[server]
+host = "0.0.0.0"
+port = "8080"
+
+[log]
+max_level = "info"
+
+[[reconciler.matchers]]
+[reconciler.matchers.taint]
+effect = "Nope"
+key = "pressure"
+value = "memory"
+
+[[reconciler.matchers.conditions]]
+type = "NetworkInterfaceCard"
+status = "Kaput|Ruined"
+
+[[reconciler.matchers.conditions]]
+type = "PrivateLink"
+status = "severed"
