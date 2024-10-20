@@ -1,6 +1,6 @@
 .PHONY: run
 run:
-	cargo run
+	cargo run -- --config-file "./settings/tainter.toml"
 
 .PHONY: test
 test:

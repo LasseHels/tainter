@@ -15,13 +15,13 @@ use regex::Regex;
 
 #[derive(Debug)]
 pub struct Condition {
-    type_: Regex,
-    status: Regex,
+    pub type_: Regex,
+    pub status: Regex,
 }
 
 pub struct Configuration {
-    conditions: Vec<Condition>,
-    taint: Taint,
+    pub conditions: Vec<Condition>,
+    pub taint: Taint,
 }
 
 pub struct Reconciler {
