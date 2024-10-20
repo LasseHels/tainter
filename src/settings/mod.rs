@@ -5,14 +5,14 @@ use config::{Config, ConfigError};
 use regex::Regex;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
-use strum_macros::EnumString;
+use strum_macros::{Display, EnumString};
 use thiserror::Error;
 use validator::{Validate, ValidationError, ValidationErrors};
 
 #[derive(Deserialize, Debug)]
-struct Server {
-    host: String,
-    port: u16,
+pub struct Server {
+    pub host: String,
+    pub port: u16,
 }
 
 // https://serde.rs/field-attrs.html#deserialize_with.
@@ -27,56 +27,56 @@ where
 }
 
 #[derive(Deserialize, Debug)]
-struct Log {
+pub struct Log {
     #[serde(deserialize_with = "tracing_level_from_string")]
-    max_level: tracing::Level,
+    pub max_level: tracing::Level,
 }
 
 #[derive(Deserialize, Validate, Debug)]
 pub struct Settings {
-    server: Server,
-    log: Log,
+    pub server: Server,
+    pub log: Log,
     #[validate(nested)]
-    reconciler: Reconciler,
+    pub reconciler: Reconciler,
 }
 
 #[derive(Deserialize, Validate, Debug)]
-struct Reconciler {
+pub struct Reconciler {
     #[validate(nested)]
-    matchers: Vec<Matcher>,
+    pub matchers: Vec<Matcher>,
 }
 
 #[derive(Deserialize, Validate, Debug)]
-struct Matcher {
+pub struct Matcher {
     #[validate(nested)]
-    taint: Taint,
+    pub taint: Taint,
     #[validate(nested)]
-    conditions: Vec<Condition>,
+    pub conditions: Vec<Condition>,
 }
 
-#[derive(Debug, PartialEq, Deserialize, EnumString)]
-enum TaintEffect {
+#[derive(Debug, PartialEq, Deserialize, EnumString, Display)]
+pub enum TaintEffect {
     NoSchedule,
     PreferNoSchedule,
     NoExecute,
 }
 
 #[derive(Deserialize, Validate, Debug)]
-struct Taint {
-    effect: TaintEffect,
+pub struct Taint {
+    pub effect: TaintEffect,
     #[validate(length(min = 1))]
-    key: String,
+    pub key: String,
     #[validate(length(min = 1))]
-    value: String,
+    pub value: String, // TODO it should probably be possible to configure a taint with no value.
 }
 
 #[derive(Deserialize, Validate, Debug)]
-struct Condition {
+pub struct Condition {
     #[serde(rename = "type")]
     #[validate(custom(function = "validate_regex"))]
-    type_: String,
+    pub type_: String,
     #[validate(custom(function = "validate_regex"))]
-    status: String,
+    pub status: String,
 }
 
 fn validate_regex(value: &str) -> Result<(), ValidationError> {
