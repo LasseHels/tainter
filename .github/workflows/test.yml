@@ -1,0 +1,16 @@
+on:
+  workflow_call:
+
+jobs:
+  test:
+    name: Test
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.90
+      - name: Test
+        run: make test
