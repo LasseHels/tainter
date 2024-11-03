@@ -2,8 +2,8 @@ on:
   workflow_call:
 
 jobs:
-  test:
-    name: Test
+  lint:
+    name: Lint
     permissions:
       contents: read
     runs-on: ubuntu-22.04
