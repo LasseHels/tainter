@@ -13,16 +13,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-#      # https://github.com/actions-rs/toolchain/issues/54#issuecomment-1452937296.
-#      - id: cache-rustup
-#        name: Cache Rust toolchain
-#        uses: actions/cache@v4
-#        with:
-#          path: |
-#            ~/.rustup
-#            ~/.cargo
-#          key: toolchain-${{ env.RUST_VERSION }}
-#      - if: ${{ steps.cache-rustup.outputs.cache-hit != 'true' }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
