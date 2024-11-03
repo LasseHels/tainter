@@ -1,0 +1,21 @@
+on:
+  workflow_call:
+
+jobs:
+  lint:
+    name: Lint
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.82.0'
+          components: 'clippy'
+      - name: Cache Rust toolchain
+        uses: Swatinem/rust-cache@v2.7.5
+      - name: Lint
+        run: make lint

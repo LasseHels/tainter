@@ -1,0 +1,13 @@
+name: Main
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test
+    uses: ./.github/workflows/test.yml
+  lint:
+    name: Lint
+    uses: ./.github/workflows/lint.yml
