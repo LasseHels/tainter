@@ -17,5 +17,5 @@ jobs:
           components: 'clippy'
       - name: Cache Rust toolchain
         uses: Swatinem/rust-cache@v2.7.5
-      - name: Test
+      - name: Lint
         run: make lint
