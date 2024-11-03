@@ -14,7 +14,8 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: '1.82.0'
+          components: 'clippy'
       - name: Cache Rust toolchain
         uses: Swatinem/rust-cache@v2.7.5
       - name: Test
-        run: make test
+        run: make lint
