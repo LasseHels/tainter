@@ -54,3 +54,15 @@ status = "severed"
 ## Run
 
 Run Tainter locally with `make run`.
+
+## Release
+
+An image is automatically built on all pushes to `main` as well as when a new tag is pushed. To release a new version
+of Tainter, create an annotated tag:
+```shell
+git tag -a <VERSION> -m "<DESCRIPTION>"
+```
+Release versions follow [semantic versioning](https://semver.org). Do not prefix version with `v`; i.e., `1.0.0` and not
+`v1.0.0`.
+
+Tainter images are stored in the https://hub.docker.com/r/lassehels/tainter repository.
