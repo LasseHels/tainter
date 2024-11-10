@@ -9,7 +9,7 @@ on:
         required: false
         type: boolean
         default: false
-        description: 'Whether to push the build image'
+        description: 'Whether to push the built image'
 
 jobs:
   build:
