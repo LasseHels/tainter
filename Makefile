@@ -1,6 +1,7 @@
 IMAGE_NAME?=tainter
 IMAGE_VERSION?=latest
 IMAGE_TAG?="$(IMAGE_NAME):$(IMAGE_VERSION)"
+END_TO_END_TEST_KUBERNETES_VERSION?=v1.29.7
 
 .PHONY: run
 run:
@@ -12,8 +13,8 @@ test:
 
 .PHONY: setup
 setup:
-	minikube start --nodes 3 --profile tainter-end-to-end --kubernetes-version=v1.29.7
-	kubectl kustomize ./deploy | kubectl apply -f -
+	minikube start --nodes 3 --profile tainter-end-to-end --kubernetes-version=$(END_TO_END_TEST_KUBERNETES_VERSION)
+	kubectl kustomize ./tests | kubectl apply -f -
 	kubectl proxy --port=8011 &
 
 .PHONY: teardown

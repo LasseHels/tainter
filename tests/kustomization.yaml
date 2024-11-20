@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # We deliberately use as much of our real-world deployment example as possible in the end-to-end test.
+  # This ensures that the deployment YAML is automatically tested as part of our end-to-end test.
+  - ../deploy
+patches:
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/image
+        value: tainter:end-to-end
+    target:
+      kind: Deployment
+      name: tainter
