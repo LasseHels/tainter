@@ -10,6 +10,21 @@ run:
 test:
 	cargo test
 
+.PHONY: setup
+setup:
+	minikube start --nodes 3 --profile tainter-end-to-end --kubernetes-version=v1.29.7
+	kubectl kustomize ./deploy | kubectl apply -f -
+	kubectl proxy --port=8011 &
+
+.PHONY: teardown
+teardown:
+	minikube delete --profile tainter-end-to-end
+	killall kubectl proxy
+
+.PHONY: test-end-to-end
+test-end-to-end:
+	cargo test -- --show-output --ignored
+
 .PHONY: fmt
 fmt:
 	cargo fmt

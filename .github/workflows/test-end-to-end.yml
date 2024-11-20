@@ -1,0 +1,27 @@
+on:
+  workflow_call:
+
+jobs:
+  end-to-end:
+    name: Test
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    env:
+      MINIKUBE_VERSION: 'v1.34.0'
+      KUBERNETES_VERSION: 'v1.31.2'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+      - name: Install Minikube
+        uses: medyagh/setup-minikube@v0.0.18
+        with:
+          start: false
+#      - name: Build image
+#        run: IMAGE_TAG=tainter:end-to-end make image
+      - name: Setup for test
+        run: make setup
+#      - name: Load image in Minikube
+#        run: minikube image load tainter:end-to-end

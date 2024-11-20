@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tainter
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tainter
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: tainter
+    spec:
+      serviceAccountName: tainter
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 10
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - tainter
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: tainter
+          #image: lassehels/tainter:1.0.0
+          # TODO this should be overwritten by a kustomize file instead of hardcoded.
+          image: tainter:end-to-end
+          args:
+            - --config-file=/etc/config/config.toml
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+          resources:
+            requests:
+              cpu: 30m
+              memory: 30Mi
+            limits:
+              cpu: 60m
+              memory: 80Mi
+          ports:
+            - containerPort: 8080
+              name: http
+          livenessProbe:
+            failureThreshold: 1
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            initialDelaySeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 3
+          readinessProbe:
+            failureThreshold: 1
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            initialDelaySeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 3
+          volumeMounts:
+            - mountPath: /etc/config
+              name: config
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: tainter-config
