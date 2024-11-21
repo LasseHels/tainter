@@ -129,6 +129,8 @@ async fn wait_for_taint_to_be_added() {
     }
 }
 
+// TODO this should return pods. What if pods change between this function getting pods and the
+// caller getting pods?
 async fn wait_for_tainter_pods_to_be_assigned_nodes(pod_client: &Api<Pod>) {
     let deadline = Utc::now().add(chrono::Duration::seconds(60));
 

@@ -20,6 +20,6 @@ jobs:
         with:
           start: false
       - name: Setup for test
-        run: make setup
+        run: END_TO_END_TEST_KUBERNETES_VERSION=${{ matrix.kubernetes-version }} make setup
       - name: Run end-to-end tests
-        run: END_TO_END_TEST_KUBERNETES_VERSION=${{ matrix.kubernetes-version }} make test-end-to-end
+        run: make test-end-to-end
