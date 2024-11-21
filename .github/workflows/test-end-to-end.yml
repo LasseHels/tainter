@@ -1,0 +1,25 @@
+on:
+  workflow_call:
+
+jobs:
+  end-to-end:
+    name: Test
+    strategy:
+      matrix:
+        kubernetes-version: ['v1.29.7', 'v1.30.6', 'v1.31.0']
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+      - name: Install Minikube
+        uses: medyagh/setup-minikube@v0.0.18
+        with:
+          start: false
+      - name: Setup for test
+        run: END_TO_END_TEST_KUBERNETES_VERSION=${{ matrix.kubernetes-version }} make setup
+      - name: Run end-to-end tests
+        run: make test-end-to-end

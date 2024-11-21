@@ -11,11 +11,14 @@ jobs:
   lint:
     name: Lint
     uses: ./.github/workflows/lint.yml
+  end-to-end:
+    name: End-to-end
+    uses: ./.github/workflows/test-end-to-end.yml
   build:
     name: Build
     uses: ./.github/workflows/build.yml
     secrets: inherit
-    needs: [test, lint]
+    needs: [test, lint, end-to-end]
     with:
       version: '${{ github.sha }}'
       push: true
