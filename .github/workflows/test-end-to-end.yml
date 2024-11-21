@@ -19,17 +19,7 @@ jobs:
         uses: medyagh/setup-minikube@v0.0.18
         with:
           start: false
-      - name: Build image
-        run: IMAGE_TAG=tainter:end-to-end make image
-      - name: List images
-        run: docker image ls
       - name: Setup for test
         run: make setup
-      - name: List everything in cluster
-        run: kubectl get all -A
-      - name: Load image into Minikube
-        # Load the built image into Minikube.
-        # See https://minikube.sigs.k8s.io/docs/handbook/pushing/#7-loading-directly-to-in-cluster-container-runtime.
-        run: minikube image load tainter:end-to-end
       - name: Run end-to-end tests
         run: END_TO_END_TEST_KUBERNETES_VERSION=${{ matrix.kubernetes-version }} make test-end-to-end

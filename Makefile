@@ -13,7 +13,10 @@ test:
 
 .PHONY: setup
 setup:
+	IMAGE_TAG=tainter:end-to-end make image
 	minikube start --nodes 3 --profile tainter-end-to-end --kubernetes-version=$(END_TO_END_TEST_KUBERNETES_VERSION)
+  # See https://minikube.sigs.k8s.io/docs/handbook/pushing/#7-loading-directly-to-in-cluster-container-runtime.
+	minikube image load tainter:end-to-end --profile tainter-end-to-end
 	kubectl kustomize ./tests | kubectl apply -f -
 	kubectl proxy --port=8011 &
 
