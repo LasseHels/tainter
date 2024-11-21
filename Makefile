@@ -53,7 +53,6 @@ run-image:
 .PHONY: kubeconform
 kubeconform:
 	kubeconform \
-    -cache kubeconform/.cache \
     -schema-location default \
     -schema-location 'kubeconform/schemas/{{ .ResourceKind }}.json' \
     -strict \
