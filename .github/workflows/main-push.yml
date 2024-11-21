@@ -14,11 +14,14 @@ jobs:
   end-to-end:
     name: End-to-end
     uses: ./.github/workflows/test-end-to-end.yml
+  kubeconform:
+    name: Kubeconform
+    uses: ./.github/workflows/kubeconform.yml
   build:
     name: Build
     uses: ./.github/workflows/build.yml
     secrets: inherit
-    needs: [test, lint, end-to-end]
+    needs: [test, lint, end-to-end, kubeconform]
     with:
       version: '${{ github.sha }}'
       push: true

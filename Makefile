@@ -49,3 +49,11 @@ image:
 .PHONY: run-image
 run-image:
 	docker run --volume "./settings:/settings" $(IMAGE_TAG) --config-file="/settings/tainter.toml"
+
+.PHONY: kubeconform
+kubeconform:
+	kubeconform \
+    -schema-location default \
+    -schema-location 'kubeconform/schemas/{{ .ResourceKind }}.json' \
+    -strict \
+    -summary deploy

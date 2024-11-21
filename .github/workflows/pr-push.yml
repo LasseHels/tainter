@@ -13,3 +13,6 @@ jobs:
   end-to-end:
     name: End-to-end
     uses: ./.github/workflows/test-end-to-end.yml
+  kubeconform:
+    name: Kubeconform
+    uses: ./.github/workflows/kubeconform.yml
