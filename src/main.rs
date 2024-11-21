@@ -43,6 +43,3 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
-// TODO description on https://hub.docker.com/r/lassehels/tainter.
-// TODO multi-arch build.

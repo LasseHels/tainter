@@ -32,9 +32,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: tainter
-          #image: lassehels/tainter:1.0.0
-          # TODO this should be overwritten by a kustomize file instead of hardcoded.
-          image: tainter:end-to-end
+          image: lassehels/tainter:1.0.0
           args:
             - --config-file=/etc/config/config.toml
           securityContext:
