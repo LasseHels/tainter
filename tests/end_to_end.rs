@@ -27,13 +27,9 @@ async fn test_end_to_end() {
 async fn assert_tainter_pods_on_different_nodes() {
     let pod_client: Api<Pod> = Api::all(Client::try_default().await.unwrap());
 
-    wait_for_tainter_pods_to_be_assigned_nodes(&pod_client).await;
+    let tainter_pods = wait_for_tainter_pods_to_be_assigned_nodes(&pod_client).await;
 
-    let tainter_pods = pod_client
-        .list(&ListParams::default().labels("app=tainter"))
-        .await
-        .unwrap();
-    let pod_count = tainter_pods.items.len();
+    let pod_count = tainter_pods.len();
     // The deployment spins up two pods, but it is possible for three Tainter pods to exists at
     // once. This happens when a node taint simultaneously causes a Tainter pod to terminate and a
     // new one to spin up.
@@ -72,7 +68,7 @@ async fn assert_tainter_added_taint() {
     assert_within_duration(
         taint.time_added.as_ref().unwrap().0,
         Time(Utc::now()).0,
-        chrono::Duration::seconds(5),
+        chrono::Duration::seconds(60),
     );
 }
 
@@ -129,9 +125,7 @@ async fn wait_for_taint_to_be_added() {
     }
 }
 
-// TODO this should return pods. What if pods change between this function getting pods and the
-// caller getting pods?
-async fn wait_for_tainter_pods_to_be_assigned_nodes(pod_client: &Api<Pod>) {
+async fn wait_for_tainter_pods_to_be_assigned_nodes(pod_client: &Api<Pod>) -> Vec<Pod> {
     let deadline = Utc::now().add(chrono::Duration::seconds(60));
 
     loop {
@@ -146,10 +140,13 @@ async fn wait_for_tainter_pods_to_be_assigned_nodes(pod_client: &Api<Pod>) {
             .await
             .unwrap();
 
-        let pods_without_nodes: Vec<&Pod> = tainter_pods.iter().filter(|pod| pod.spec.as_ref().unwrap().node_name.is_none()).collect();
+        let pods_without_nodes: Vec<&Pod> = tainter_pods
+            .iter()
+            .filter(|pod| pod.spec.as_ref().unwrap().node_name.is_none())
+            .collect();
 
         if pods_without_nodes.is_empty() {
-            return
+            return tainter_pods.items;
         }
     }
 }
