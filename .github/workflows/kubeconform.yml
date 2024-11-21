@@ -1,0 +1,19 @@
+on:
+  workflow_call:
+
+jobs:
+  kubeconform:
+    name: Kubeconform
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Kubeconform
+        run: |
+          curl -L -O https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xvf kubeconform-linux-amd64.tar.gz
+          mv kubeconform /usr/local/bin
+      - name: Run Kubeconform
+        run: make kubeconform
