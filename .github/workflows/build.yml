@@ -31,7 +31,7 @@ jobs:
         id: tag
         run: echo "tag=${{ secrets.DOCKERHUB_USERNAME }}/tainter:${{ inputs.version }}" >> "$GITHUB_OUTPUT"
       - name: Build image
-        run: IMAGE_TAG=${{ steps.tag.outputs.tag }} IMAGE_PLATFORMs=${{ inputs.platforms }} make image
+        run: IMAGE_TAG=${{ steps.tag.outputs.tag }} IMAGE_PLATFORMS=${{ inputs.platforms }} make image
       - name: Login
         uses: docker/login-action@v3
         with:
