@@ -16,3 +16,11 @@ jobs:
   kubeconform:
     name: Kubeconform
     uses: ./.github/workflows/kubeconform.yml
+  build:
+    name: Build
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      version: '${{ github.sha }}'
+      push: true
+      platform: 'linux/amd64,linux/arm64'

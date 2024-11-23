@@ -1,6 +1,9 @@
+SHELL = /usr/bin/env bash
 IMAGE_NAME?=tainter
 IMAGE_VERSION?=latest
 IMAGE_TAG?="$(IMAGE_NAME):$(IMAGE_VERSION)"
+# See https://stackoverflow.com/a/71766578.
+IMAGE_PLATFORMS?=$(shell docker system info --format '{{.OSType}}/{{.Architecture}}')
 END_TO_END_TEST_KUBERNETES_VERSION?=v1.29.7
 
 .PHONY: run
@@ -43,8 +46,8 @@ build:
 
 .PHONY: image
 image:
-	@echo "Building image with tag $(IMAGE_TAG)"
-	docker build -t $(IMAGE_TAG) .
+	@echo "Building image with tag $(IMAGE_TAG) and platform(s) $(IMAGE_PLATFORMS)"
+	docker build --tag $(IMAGE_TAG) --platform $(IMAGE_PLATFORMS) .
 
 .PHONY: run-image
 run-image:

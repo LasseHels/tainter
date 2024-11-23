@@ -20,4 +20,9 @@ RUN groupadd -g 10001 tainter && \
    useradd -u 10000 -g tainter tainter \
    && chown -R tainter:tainter /usr/local/bin/tainter
 USER tainter:tainter
+
+LABEL org.opencontainers.image.title="tainter"
+LABEL org.opencontainers.image.source="https://github.com/LasseHels/tainter"
+LABEL org.opencontainers.image.authors="Lasse Canth Hels <lasse@hels.dk>"
+
 ENTRYPOINT ["/usr/local/bin/tainter"]
