@@ -1,4 +1,4 @@
-FROM rust:1.82.0-slim-bookworm as base
+FROM rust:1.82.0-slim-bookworm AS base
 RUN cargo install cargo-chef --version 0.1.68
 
 FROM base AS planner

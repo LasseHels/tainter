@@ -47,7 +47,7 @@ build:
 .PHONY: image
 image:
 	@echo "Building image with tag $(IMAGE_TAG) and platform(s) $(IMAGE_PLATFORMS)"
-	docker build --tag $(IMAGE_TAG) --platform $(IMAGE_PLATFORMS) .
+	docker buildx build --tag $(IMAGE_TAG) --platform $(IMAGE_PLATFORMS) .
 
 .PHONY: run-image
 run-image:
