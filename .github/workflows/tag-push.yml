@@ -27,4 +27,4 @@ jobs:
       # https://github.com/orgs/community/discussions/26686#discussioncomment-3396593.
       version: '${{ github.ref_name }}'
       push: true
-      platform: 'linux/amd64,linux/arm64'
+      platforms: 'linux/amd64,linux/arm64'
