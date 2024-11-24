@@ -16,6 +16,7 @@ jobs:
   kubeconform:
     name: Kubeconform
     uses: ./.github/workflows/kubeconform.yml
+  # TODO remove this.
   build:
     name: Build
     uses: ./.github/workflows/build.yml
@@ -23,4 +24,4 @@ jobs:
     with:
       version: '${{ github.sha }}'
       push: true
-      platforms: 'linux/amd64,linux/arm64'
+      platforms: 'linux/amd64'

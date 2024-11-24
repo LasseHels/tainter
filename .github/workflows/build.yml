@@ -39,6 +39,8 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: List images
+        run: docker image ls
       - name: Push image
         if: inputs.push == true
         run: |
