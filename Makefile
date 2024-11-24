@@ -57,3 +57,7 @@ kubeconform:
     -schema-location 'kubeconform/schemas/{{ .ResourceKind }}.json' \
     -strict \
     -summary deploy
+
+.PHONY: manifest
+manifest:
+	kubectl kustomize ./deploy > tainter.yaml

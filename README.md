@@ -67,3 +67,10 @@ Release versions follow [semantic versioning](https://semver.org). Do not prefix
 instead of `v1.0.0`
 
 Tainter images are stored in the https://hub.docker.com/r/lassehels/tainter repository.
+
+## Deploy
+
+Tainter is designed to be deployed in a Kubernetes cluster. Tainter needs `list`, `watch` and `update` permissions on
+the `nodes` resource. Example Tainter manifest files are found in the [deploy](deploy) directory.
+Run `make manifest` to generate a single `tainter.yaml` file with all the necessary Kubernetes resources needed to run
+Tainter.
