@@ -2,8 +2,8 @@ on:
   workflow_call:
 
 jobs:
-  lint:
-    name: Lint
+  rust:
+    name: Rust
     permissions:
       contents: read
     runs-on: ubuntu-22.04
@@ -19,3 +19,30 @@ jobs:
         uses: Swatinem/rust-cache@v2.7.5
       - name: Lint
         run: make lint
+  dockerfile:
+    name: Dockerfile
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Lint Dockerfile
+        run: docker run --rm -i hadolint/hadolint:v2.12.1-beta-alpine < Dockerfile
+  kubernetes:
+    name: Kubernetes
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    steps:
+      # Deliberately set up Kubeconform before checking out the repository, as we might otherwise get name collisions
+      # between the kubeconform directory and kubeconform binary (which have the same name).
+      - name: Setup Kubeconform
+        run: |
+          curl -L -O https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xvf kubeconform-linux-amd64.tar.gz
+          mv kubeconform /usr/local/bin
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run Kubeconform
+        run: make kubeconform

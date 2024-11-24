@@ -12,17 +12,11 @@ jobs:
   lint:
     name: Lint
     uses: ./.github/workflows/lint.yml
-  end-to-end:
-    name: End-to-end
-    uses: ./.github/workflows/test-end-to-end.yml
-  kubeconform:
-    name: Kubeconform
-    uses: ./.github/workflows/kubeconform.yml
   publish:
     name: Publish
     uses: ./.github/workflows/publish.yml
     secrets: inherit
-    needs: [test, lint, end-to-end, kubeconform]
+    needs: [test, lint]
     with:
       # https://github.com/orgs/community/discussions/26686#discussioncomment-3396593.
       version: '${{ github.ref_name }}'

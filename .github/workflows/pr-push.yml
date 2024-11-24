@@ -1,4 +1,4 @@
-name: Pull Requests
+name: Pull Request
 
 on:
   pull_request:
@@ -10,9 +10,3 @@ jobs:
   lint:
     name: Lint
     uses: ./.github/workflows/lint.yml
-  end-to-end:
-    name: End-to-end
-    uses: ./.github/workflows/test-end-to-end.yml
-  kubeconform:
-    name: Kubeconform
-    uses: ./.github/workflows/kubeconform.yml
