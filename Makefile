@@ -1,4 +1,3 @@
-SHELL = /usr/bin/env bash
 IMAGE_NAME?=tainter
 IMAGE_VERSION?=latest
 IMAGE_TAG?="$(IMAGE_NAME):$(IMAGE_VERSION)"
