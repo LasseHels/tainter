@@ -32,16 +32,19 @@ jobs:
       - name: Construct image tag
         id: tag
         run: echo "tag=${{ secrets.DOCKERHUB_USERNAME }}/tainter:${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-      - name: Build image
-        run: IMAGE_TAG=${{ steps.tag.outputs.tag }} IMAGE_PLATFORMS=${{ inputs.platforms }} make image
-      - name: Login
+      - name: Log in
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push image
+        run: |
+          docker buildx build --push --tag ${{ steps.tag.outputs.tag }} --platform ${{ inputs.platforms }} .
+#      - name: Build image
+#        run: IMAGE_TAG=${{ steps.tag.outputs.tag }} IMAGE_PLATFORMS=${{ inputs.platforms }} make image
       - name: List images
         run: docker image ls
-      - name: Push image
-        if: inputs.push == true
-        run: |
-          docker image push ${{ steps.tag.outputs.tag }}
+#      - name: Push image
+#        if: inputs.push == true
+#        run: |
+#          docker image push ${{ steps.tag.outputs.tag }}
