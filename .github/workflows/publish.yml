@@ -5,11 +5,6 @@ on:
         required: true
         type: string
         description: 'The built image will be tagged with this version'
-      push:
-        required: false
-        type: boolean
-        default: false
-        description: 'Whether to push the built image'
       platforms:
         required: true
         type: string
@@ -17,7 +12,7 @@ on:
         description: 'Platform(s) for which to build the image. Example: "linux/amd64,linux/arm64".'
 
 jobs:
-  build:
+  publish:
     name: Image
     permissions:
       contents: read
@@ -40,11 +35,3 @@ jobs:
       - name: Build and push image
         run: |
           docker buildx build --push --tag ${{ steps.tag.outputs.tag }} --platform ${{ inputs.platforms }} .
-#      - name: Build image
-#        run: IMAGE_TAG=${{ steps.tag.outputs.tag }} IMAGE_PLATFORMS=${{ inputs.platforms }} make image
-      - name: List images
-        run: docker image ls
-#      - name: Push image
-#        if: inputs.push == true
-#        run: |
-#          docker image push ${{ steps.tag.outputs.tag }}

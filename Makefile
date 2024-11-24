@@ -2,8 +2,6 @@ SHELL = /usr/bin/env bash
 IMAGE_NAME?=tainter
 IMAGE_VERSION?=latest
 IMAGE_TAG?="$(IMAGE_NAME):$(IMAGE_VERSION)"
-# See https://stackoverflow.com/a/71766578.
-IMAGE_PLATFORMS?=$(shell docker system info --format '{{.OSType}}/{{.Architecture}}')
 END_TO_END_TEST_KUBERNETES_VERSION?=v1.29.7
 
 .PHONY: run
@@ -46,10 +44,8 @@ build:
 
 .PHONY: image
 image:
-	@echo "Building image with tag $(IMAGE_TAG) and platform(s) $(IMAGE_PLATFORMS)"
-  # We need to add --load to the command so that the built images show up in "docker image ls".
-  # See https://github.com/docker/buildx/issues/59#issuecomment-1168619521.
-	docker buildx build --load --tag $(IMAGE_TAG) --platform $(IMAGE_PLATFORMS) .
+	@echo "Building image with tag $(IMAGE_TAG)"
+	docker build --tag $(IMAGE_TAG) .
 
 .PHONY: run-image
 run-image:

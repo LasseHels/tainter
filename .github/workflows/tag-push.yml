@@ -18,9 +18,9 @@ jobs:
   kubeconform:
     name: Kubeconform
     uses: ./.github/workflows/kubeconform.yml
-  build:
-    name: Build
-    uses: ./.github/workflows/build.yml
+  publish:
+    name: Publish
+    uses: ./.github/workflows/publish.yml
     secrets: inherit
     needs: [test, lint, end-to-end, kubeconform]
     with:

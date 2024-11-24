@@ -16,12 +16,3 @@ jobs:
   kubeconform:
     name: Kubeconform
     uses: ./.github/workflows/kubeconform.yml
-  # TODO remove this.
-  build:
-    name: Build
-    uses: ./.github/workflows/build.yml
-    secrets: inherit
-    with:
-      version: '${{ github.sha }}'
-      push: true
-      platforms: 'linux/amd64,linux/arm64'
