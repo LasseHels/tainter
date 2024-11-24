@@ -5,14 +5,14 @@ on:
         required: true
         type: string
         description: 'The built image will be tagged with this version'
-      push:
-        required: false
-        type: boolean
-        default: false
-        description: 'Whether to push the built image'
+      platforms:
+        required: true
+        type: string
+        default: 'linux/amd64'
+        description: 'Platform(s) for which to build the image. Example: "linux/amd64,linux/arm64".'
 
 jobs:
-  build:
+  publish:
     name: Image
     permissions:
       contents: read
@@ -20,19 +20,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
       - name: Construct image tag
         id: tag
         run: echo "tag=${{ secrets.DOCKERHUB_USERNAME }}/tainter:${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-      - name: Build image
-        run: IMAGE_TAG=${{ steps.tag.outputs.tag }} make image
-      - name: Login
+      - name: Log in
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Push image
-        if: inputs.push == true
+      - name: Build and push image
         run: |
-          docker image push ${{ steps.tag.outputs.tag }}
+          docker buildx build --push --tag ${{ steps.tag.outputs.tag }} --platform ${{ inputs.platforms }} .

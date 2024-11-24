@@ -44,7 +44,7 @@ build:
 .PHONY: image
 image:
 	@echo "Building image with tag $(IMAGE_TAG)"
-	docker build -t $(IMAGE_TAG) .
+	docker build --tag $(IMAGE_TAG) .
 
 .PHONY: run-image
 run-image:
