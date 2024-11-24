@@ -47,7 +47,9 @@ build:
 .PHONY: image
 image:
 	@echo "Building image with tag $(IMAGE_TAG) and platform(s) $(IMAGE_PLATFORMS)"
-	docker buildx build --tag $(IMAGE_TAG) --platform $(IMAGE_PLATFORMS) .
+  # We need to add --load to the command so that the built images show up in "docker image ls".
+  # See https://github.com/docker/buildx/issues/59#issuecomment-1168619521.
+	docker buildx build --load --tag $(IMAGE_TAG) --platform $(IMAGE_PLATFORMS) .
 
 .PHONY: run-image
 run-image:
